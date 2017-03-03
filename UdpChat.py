@@ -146,6 +146,7 @@ def clientmode():
 								if i==4:
 									print('[server not responding]\n>>> '),
 									print('[Exiting]\n>>> '),
+									quitlist[0]=True
 									break
 						else:
 							print('[you cannot dereg other user]\n>>> '),
@@ -269,6 +270,7 @@ def clientmode():
 			raise MyException('[Invalid port number]')
 		client_dict = dict()
 		acklist = [False, False]
+		quitlist = [False]
 		###{name: addr, onlinestate}
 		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		s.bind(('',client_port))
@@ -292,7 +294,8 @@ def clientmode():
 			t1.start()
 			t2.start()
 			while 1:
-				pass
+				if quitlist[0]==True:
+					break
 		else:
 			raise MyException("[invalid tag"+data['tag']+']')
 		
