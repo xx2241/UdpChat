@@ -5,6 +5,7 @@ import time
 from time import localtime, strftime
 from threading import Thread
 
+
 class MyException(Exception): pass
 
 def servermode():
@@ -12,7 +13,6 @@ def servermode():
 		for name, data in server_dict.items():
 			if data[1]==True:
 				s.sendto(json.dumps(message),data[0])
-		sys.stdout.flush()
 
 	try:
 		try:
@@ -23,7 +23,8 @@ def servermode():
 			raise MyException('Invalid port number')
 		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		s.bind(('',server_port))
-		print(">>> server start " + str(socket.gethostbyname(socket.gethostname())))
+		s.settimeout(0.7)
+		print(">>> [server start] " + str(socket.gethostbyname(socket.gethostname())))
 		sys.stdout.flush()
 
 		server_dict = dict()
@@ -32,76 +33,75 @@ def servermode():
 		while True:
 			data = None
 			clientaddress = None
-			data, clientaddress = s.recvfrom(server_port)
-			print(">>> receive message")
+			try:
+				data, clientaddress = s.recvfrom(server_port)
+			except socket.error:
+				continue
+			print(">>> [receive data]")
 			try:
 				message = json.loads(data)				
 			except:
 				raise MyException('>>> not json data type')
-			print('splitting message')
 			tag = message['tag']
-			print(tag)
 			
 			if tag == 'first_reg':
 				nick_name = message['info']
-				print('tag correct: first_reg')
 				if nick_name in server_dict:
-					print('nickname in dict')
 					try:
 						s.sendto(json.dumps({'tag':"first_reg_fail",'info':'fail'}),clientaddress)
-						print(">>> send message")
 					except:
-						print('>>> message sending problem')
+						print('>>> [message sending problem]')
 						raise MyException('>>> problem with sending data to client')
 				else:
-					print('register a new user')
 					server_dict[nick_name] = (clientaddress, True)
 					s.sendto(json.dumps({'tag':"first_reg_succeed",'info':'success'}),clientaddress)
 					time.sleep(0.01)
 					broadcast({'tag':"client_dict", 'info':server_dict})
 			elif tag == 'dereg':
 				nick_name = message['info']
-				print('tag is dereg')	
 				server_dict[nick_name] = (clientaddress, False)
-				print('update the server_dict')
 				s.sendto(json.dumps({'tag':'ACK1','info':'dereg'}),clientaddress)
-				print('send ACK1 dereg back')
 				broadcast({'tag':"client_dict", 'info':server_dict})
-				print('broadcast')
 			elif tag == 'reg':
-				print('tag is reg')
 				nick_name = message['info']
 				server_dict[nick_name] = (clientaddress,True)
 				broadcast({'tag':"client_dict", 'info':server_dict})
-				print('update the server_dict')
 				s.sendto(json.dumps({'tag':'ACK1','info':'reg'}),clientaddress)
-				print('send ACK1 back')
 				time.sleep(0.1)
-				print(nick_name)
 				if nick_name in message_dict:
-					print('nick_name in dict...')
 					s.sendto(json.dumps({'tag':'offlinechat','info':message_dict[nick_name]}),clientaddress)
 					del message_dict[nick_name]
-					print('finish senindg offline message....')
 			elif tag == 'offlinechat':
-				print('offlinechat.....')
-				print(message['info'])
 				nick_name, target_name, offlinemessage = message['info']
+				s.sendto(json.dumps({'tag':'ACK0','info':"ACK0"}),clientaddress)
+				s.sendto(json.dumps({'tag':'checkstate','info':'checkstate'}),tuple(server_dict[target_name][0]))
+				try:
+					check_data,check_addr = s.recvfrom(server_port)
+					if json.loads(check_data)['tag']=='check_active':
+						if server_dict[target_name][1]==False:
+							server_dict[target_name] = (server_dict[target_name][0],True)
+							broadcast({'tag':'client_dict','info':server_dict})
+						else:
+							s.sendto(json.dumps({'tag':'wrong_state','info':target_name}),clientaddress)
+						continue
+					else:
+						if server_dict[target_name][1]==True:
+							server_dict[target_name]=(server_dict[target_name][0] ,False)
+							broadcast({'tag':'client_dict','info':server_dict})
+				except socket.error:
+					if server_dict[target_name][1]==True:
+						server_dict[target_name]=(server_dict[target_name][0],False)
+						broadcast({'tag':'client_dict','info':server_dict})				
 				if target_name in message_dict:
-					print('name in dict...')
 					message_dict[target_name].append([nick_name,offlinemessage,strftime("%a, %d %b %Y %H:%M:%S ", localtime())])
 				else:
-					print('name not in dict...')
-					message_dict[target_name] = [nick_name,offlinemessage,strftime("%a, %d %b %Y %H:%M:%S ", localtime())]
-				print(message_dict)
-				s.sendto(json.dumps({'tag':'ACK0','info':"ACK0"}),clientaddress)
-
-			else:
-				raise MyException('>>> invalid tag')
+					message_dict[target_name]=[[nick_name,offlinemessage,strftime("%a, %d %b %Y %H:%M:%S ", localtime())]]
+				print('>>> update offline message')
+				
 	except KeyboardInterrupt:
 		raise KeyboardInterrupt
-	except:
-		raise MyException('server down')
+	except Exception as x:
+		print('>>> '+str(x))
 		sys.exit(0)
 
 
@@ -112,58 +112,51 @@ def clientmode():
 			data = None		
 			try:
 				data = raw_input().split()
-				print('>>> ')
+				print('>>> '),
 				sys.stdout.flush()
 				if client_dict[nick_name][1]==False:
-					print('>>> you are offline')
 					if len(data)==2 and data[0]=='reg':
 						if data[1] == nick_name:
-							print('nick_name_valid...')
 							acklist[1]=False
 							for i in range(0,5):
-								print('waiting for ack1...')
-								s.sendto(json.dumps({'tag':'reg','info':nick_name}),serveraddress)
 								if acklist[1]==True:
 									acklist[1]=False
 									client_dict[nick_name][1]=True
-									print('>>> you are online again')
+									print('[you are online again]\n>>> '),
 									break
+								s.sendto(json.dumps({'tag':'reg','info':nick_name}),serveraddress)
 								time.sleep(0.5)
 								if i==4:
-									print(">>> [Server not responding]")
+									print("[Server not responding]\n>>> "),
 									break
+					else:
+						print('[you are offline]\n>>> '),
 					continue
 				if len(data)==2:
 					if data[0]=='dereg':
-						print('dereging....')
 						if data[1] == nick_name:
-							print('nick_name_valid...')
 							acklist[1]=False
 							client_dict[nick_name][1]=False
 							for i in range(0,5):
-								print('waiting for ack')
 								if acklist[1]:
 									acklist[1]=False
-									print('>>> successfully dereg')
 									break
 								s.sendto(json.dumps({'tag':'dereg','info':nick_name}),serveraddress)
 								time.sleep(0.5)
 								if i==4:
-									print('>>> [server not responding]')
-									print('>>> [Exiting]')
+									print('[server not responding]\n>>> '),
+									print('[Exiting]\n>>> '),
 									break
 						else:
-							print(data[1])
-							print(nick_name)
-							print('>>> you can dereg other user')
+							print('[you cannot dereg other user]\n>>> '),
 							continue
 					if client_dict[nick_name][1]==False:
-						print(">>> [You are offline, Bye.]")
+						print("[You are offline, Bye.]\n>>> "),
 						continue
 					else:
-						print('>>> invalid input')
+						print('[invalid input]\n>>> '),
 
-				elif len(data)==3:
+				elif len(data)>=3:
 					if data[0]=='send':
 						name = data[1]
 						if name in client_dict:
@@ -172,46 +165,47 @@ def clientmode():
 								for i in range(0,2):
 									if i == 1 and acklist[0] == True:
 										acklist[0]=False
-										print(">>> [Message received by "+name+"]")
+										print("[Message received by "+name+"]\n>>> "),
 										break
 									if i == 1 and acklist[0] == False:
-										print('No ACK from ' +name+', message sent to server.')
+										print('[No ACK from ' +name+', message sent to server.]\n>>> '),
 										for i in range(0,2):
 											if i==1 and acklist[0]== True:
 												acklist[0]=False
-												print('>>> offline message received by server')
+												print('[offline message received by server]\n>>> '),
 												break
 											if i==1 and acklist[0]==False:
-												print('>>> server not received the message')
+												print('[server not received the message]\n>>> '),
 												break
-											s.sendto(json.dumps({'tag':'offlinechat','info':(nick_name,name,data[2])}),serveraddress)
+											s.sendto(json.dumps({'tag':'offlinechat','info':(nick_name,name,data[2:])}),serveraddress)
 											time.sleep(0.5)
 										break
-									print('sending chat....')
-									s.sendto(json.dumps({'tag':'chat','info':data[2]}),tuple(client_dict[name][0]))
-									print('finish sending chat...')
+									s.sendto(json.dumps({'tag':'chat','info':data[2:]}),tuple(client_dict[name][0]))
 									time.sleep(0.5)
 							else:
 								acklist[0]=False
 								for i in range(0,2):
 									if i==1 and acklist[0]==True:
 										acklist[0]=False
-										print('>>> [Messages received by the server and saved]')
+										print('[Messages received by the server and saved]\n>>> '),
 										break
 									if i==1 and acklist[0]==False:
-										print('>>> server not received the message')
+										print('[server not received the message]\n>>> '),
 										break
-									s.sendto(json.dumps({'tag':'offlinechat','info':(nick_name,name,data[2])}),serveraddress)
+									s.sendto(json.dumps({'tag':'offlinechat','info':(nick_name,name,data[2:])}),serveraddress)
 									time.sleep(0.5)
 
 
 						else:
-							print('>>> invalid user name')
+							print('[invalid user name]\n>>> '),
+					else:
+						print('[invalid input]\n>>> '),
 									
 				else:
-					print('>>> invalid input')
+					print('[invalid input]\n>>> '),
 			except Exception as x:
-				print('>>> '+str(x))
+				print(str(x))
+				sys.exit()
 
 	def receive(client_dict,acklist,nick_name):
 		try:
@@ -226,30 +220,42 @@ def clientmode():
 					message = json.loads(data)			
 				except:
 					raise MyException('not json data type')
-				print(message)
 				tag = message['tag']
 				info = message['info']
-				if tag == 'client_dict':
-					client_dict.update(info)
-					print(">>> [Client table updated.]")
-					print(">>> "+str(client_dict))
-				elif tag == 'ACK1':
-					acklist[1] = True
-				elif tag == 'ACK0':
-					acklist[0] = True
-				elif tag == 'chat':
-					s.sendto(json.dumps({'tag':'ACK0','info':'ACK0'}),addr)
-					print('>>> '+ info)
-				elif tag == 'offlinechat':
-					time.sleep(0.5)
-					print('>>> '+str(info))
-				else:
-					print('>>> invalid tag')
+
+				if tag == 'client_dict' and (client_dict=={} or client_dict[nick_name][1]==True):
+						client_dict.update(info)
+						print("[Client table updated.]\n>>> "),
+						sys.stdout.flush()
+				if client_dict[nick_name][1]==True:
+					if tag == 'ACK1':
+						acklist[1] = True
+					elif tag == 'ACK0':
+						acklist[0] = True
+					elif tag == 'chat':
+						s.sendto(json.dumps({'tag':'ACK0','info':'ACK0'}),addr)
+						print(' '.join(info)+'\n>>> '),
+						sys.stdout.flush()
+					elif tag == 'checkstate':
+						s.sendto(json.dumps({'tag':'check_active','info':'check_active'}),addr)
+					elif tag == 'wrong_state':
+						time.sleep(0.8)
+						print('[client '+info+' exists!!]\n>>>'),
+						client_dict[info] = (client_dict[info][0],True)
+						print("[Client table updated.]\n>>> "),
+						sys.stdout.flush()
+				if client_dict[nick_name][1]==False:
+					if tag == 'ACK1':
+						acklist[1] = True
+					elif tag == 'offlinechat':
+						time.sleep(0.5)
+						print('[You have message]\n>>> '),
+						for i in info:
+							print(i[0]+': <'+i[2]+'> '+' '.join(i[1])+'\n>>> '),
+							sys.stdout.flush()
 		except:
 			raise 
 			
-
-
 
 
 	try:
@@ -258,9 +264,9 @@ def clientmode():
 			serveraddress = (server_ip, int(server_port))
 			client_port = int(client_port)
 		except:
-			raise MyException("port number should be integer")
+			raise MyException("[port number should be integer]")
 		if client_port<1024 or client_port>65536: 
-			raise MyException('Invalid port number')
+			raise MyException('[Invalid port number]')
 		client_dict = dict()
 		acklist = [False, False]
 		###{name: addr, onlinestate}
@@ -269,13 +275,13 @@ def clientmode():
 		s.sendto(json.dumps({'tag': 'first_reg', 'info':nick_name}),serveraddress)
 		data = None
 		addr = None
-		s.settimeout(3)
+		s.settimeout(2)
 		data, addr = s.recvfrom(client_port)
 		data = json.loads(data)
 		if data['tag'] == 'first_reg_fail':
-			print(">>> [user name already exist.]")
+			print(">>> [user name already exist.]\n>>> "),
 		elif data['tag'] == "first_reg_succeed":
-			print(">>> [Welcome, You are registered.]")
+			print(">>> [Welcome, You are registered.]\n>>> "),
 			#client_dict.update(data['info'])
 			
 			####multithread
@@ -288,14 +294,14 @@ def clientmode():
 			while 1:
 				pass
 		else:
-			raise MyException("invalid tag"+data['tag'])
+			raise MyException("[invalid tag"+data['tag']+']')
 		
 
 	except KeyboardInterrupt:
 		raise KeyboardInterrupt
 
 	except Exception as x:
-		print(">>>"+str(x))
+		print(">>>"+str(x)),
 	finally:
 		sys.exit()
 
