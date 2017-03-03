@@ -1,6 +1,6 @@
 # UdpChat
 
-### How to use this project      
+## How to use this project      
 #### 1. Server Mode   
 ##### 1.1 run program    
 python UdpChat.py -s &lt;port&gt;   
@@ -18,7 +18,7 @@ reg &lt;nick-name&gt;
 ##### 2.3 stop program   
 ctrl + c
 
-### Program Features     
+## Program Features     
 #### 1. Run program    
 ##### 1.1 Client    
 If client can communicate with server, it will perform registration.    
@@ -30,8 +30,7 @@ The server will start and listen to upcoming message
 When the client run the program, the server will register the client in.    
 It will also display a welcome message in the client side.   
 The client dictionary will be update.         
-##### 2.2       
-Server   
+##### 2.2 Server   
 Server will update the client dictionary.
 Server will broadcast the client dictionary to all active client.  
 #### 3. Online-Chat    
@@ -59,7 +58,7 @@ When a server receives a save-message request from a client it has to check for 
 If the recipient client is still active, send an error message back to the source client and update its client dictionary.    
 If the recipient client is not active and it is different from server's table, then the server should change the status of the appropriate client to offline, and broadcast to all active users.    
 
-### Data Structure or algorithms       
+## Data Structure or algorithms       
 ##### 1. Dictionary        
 1.1 A dictionary to maintain the information of user registration in both client side and server side. It use clients' name as key and a tuple of clients' address and active status as value.    
 1.2 A dictionary to maintain the information of user's offfline message in server side. The key is clients' name and the value is the offlinemessages.       
@@ -67,7 +66,7 @@ If the recipient client is not active and it is different from server's table, t
 ##### 2. Multithreading  
 In client mode, I use two threads simultaneously. One is for receiving message, the other is for sending message. The two threads share information about client dictionary and acklist. Client dictionary will only be update by "receive" thread, the acklist can be update by both threads but the updating can never be simultaneously.
 
-### Known bugs
+## Known bugs
 1. One of the prompt after sending message has an whitespace before it   
 2. When receive save message request, instead of using multithreading in server mode, for convenience I set 0.7 second settimeout to detect the user's state, if another user send message within this 0.7 second the server won't receive it. Since I assume this program support only small amounts of users, this bug has a very small chance to occur.
 
