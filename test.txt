@@ -1,0 +1,201 @@
+Test case 1:
+1. start server2. start client x(the table should be sent from server to x)3. start client y(the table should be sent from server to x and y)4. start client z(the table should be sent from server to x and y and z)5. chat x -> y, y->z, ... , x ->z (All combinations)6. dereg x (the table should be sent to y, z. x should receive ’ack’)7. chat y->x (this should fail and message should be sent to server, and message has to be saved for x in the server)8. chat z->x (same as above)9. reg x (messages should be sent from server to x, x’s status has to be broadcasted to all the other clients)10. x, y, z:exit
+
+Command-line output:
+
+1. server
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -s 12000
+>>> [server start] 10.138.0.2
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> update offline message
+>>> [receive data]
+>>> update offline message
+>>> [receive data]
+
+2. client x
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -c x 10.138.0.2 12000 10000
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>>  [Client table updated.]
+>>>  [Client table updated.]
+>>> send y x to y    
+ >>>  [Message received by y]
+>>>  y to x
+>>> send z x to z
+ >>>  [Message received by z]
+>>>  z to x
+>>> dereg x
+ >>>  [You are offline, Bye.]
+>>>  reg x
+>>>  [you are online again]
+>>>  [You have message]
+>>>  y: <Fri, 03 Mar 2017 03:23:52 > y to x
+>>>  z: <Fri, 03 Mar 2017 03:24:39 > z to x
+>>> ^C
+xx2241@instance-w4119:~/UdpChat/UdpChat$ 
+
+3. client y
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -c y 10.138.0.2 12000 10000
+>>>[Errno 98] Address already in use
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -c z 10.138.0.2 12000 10200
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>> ^C
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -c y 10.138.0.2 12000 10200
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>>  [Client table updated.]
+>>> ^C
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -c y 10.138.0.2 12000 10200
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>>  [Client table updated.]
+>>>  x to y
+>>> send x y to x
+ >>>  [Message received by x]
+>>>  send z y to z
+>>>  [Message received by z]
+>>>  z to y
+>>>  [Client table updated.]
+>>> send x y to x
+ >>>  [No ACK from x, message sent to server.]
+>>>  [Messages received by the server and saved]
+>>>  [Client table updated.]
+>>> ^C
+xx2241@instance-w4119:~/UdpChat/UdpChat$ 
+
+4. client z
+xx2241@instance-w4119:~/UdpChat/UdpChat$ python UdpChat.py -c z 10.138.0.2 12000 10020
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>>  x to z
+>>>  y to z
+>>> send x z to x
+ >>>  [Message received by x]
+>>>  send y z to y
+>>>  [Message received by y]
+>>>  [Client table updated.]
+>>> send x z to x
+ >>>  [No ACK from x, message sent to server.]
+>>>  [Messages received by the server and saved]
+>>>  [Client table updated.]
+>>> ^C
+xx2241@instance-w4119:~/UdpChat/UdpChat$ 
+
+Test-case 2:1. start server2. start client x (the table should be sent from server to x )3. start client y(the table should be sent from server to x and y)4. dereg y5. server exit6. send message x-> y (will fail with both y and server, so should make 5 attempts and exit)
+
+Command-line output:
+
+1. Server
+dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -s 12000
+>>> [server start] 160.39.148.142
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+^C>>> Bye
+dyn-160-39-148-142:UdpChat xx$ 
+
+2. Client x
+>>>  dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -c x 160.39.148.142 120001
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>>  [Client table updated.]
+>>>  [Client table updated.]
+>>> send y xtoy
+>>>  [No ACK from x, message sent to server.]
+>>>  dyn-160-39-148-142:UdpChat xx$ 
+
+3. Client y
+dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -c y 160.39.148.142 12000 10000
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>> dereg y
+ >>>  [You are offline, Bye.]
+>>>  ^Cdyn-160-39-148-142:UdpChat xx$ python UdpChat.py -c y 160.39.148.142 1200
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>> dereg y
+ >>>  [You are offline, Bye.]
+>>>  
+
+Test-case 3:
+1. client x register(server not start)
+2. start server
+3. client x register
+3. client x send y message(y not register)
+4. client y register
+5. client x send y message
+6. client x dereg y
+7. client y dereg y
+8. client y send message to x(y is inactive)
+9. client x dereg x
+10. client y reg y(since x is inactive, he won’t know that)
+11. client x reg x
+12. client x send y message(should receive message from server and update client dictionary)
+13. use keyboardInterrupt to exit y
+14. client x send y message(the server will find out about y not responding and broadcast the updated dictionary)
+
+Command-line output:
+
+1. Server
+dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -s 12000
+>>> [server start] 160.39.148.142
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> [receive data]
+>>> update offline message
+
+2. Client x
+dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -c x 160.39.148.142 12000 10101
+>>>timed out
+dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -c x 160.39.148.142 12000 10101
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>> send y x to y
+ >>>  [invalid user name]
+>>>  [Client table updated.]
+>>> send y x to y
+ >>>  [Message received by y]
+>>>  dereg y
+>>>  [you cannot dereg other user]
+>>>  [Client table updated.]
+>>> dereg x
+ >>>  [You are offline, Bye.]
+>>>  reg x
+>>>  [you are online again]
+>>>  send y x to y
+>>>  [No ACK from y, message sent to server.]
+>>>  [Messages received by the server and saved]
+>>>  [client y exists!!]
+>>> [Client table updated.]
+>>> send y x to y
+ >>>  [No ACK from y, message sent to server.]
+>>>  [offline message received by server]
+>>>  [Client table updated.]
+>>> 
+
+3. Client y
+dyn-160-39-148-142:UdpChat xx$ python UdpChat.py -c y 160.39.148.142 12000 10000
+>>> [Welcome, You are registered.]
+>>>  [Client table updated.]
+>>>  x to y
+>>> dereg y
+ >>>  [You are offline, Bye.]
+>>>  send x y to x
+>>>  [you are offline]
+>>>  reg y
+>>>  [you are online again]
+>>>  [Client table updated.]
+>>> ^C
+dyn-160-39-148-142:UdpChat xx$ 
+
+

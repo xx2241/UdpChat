@@ -128,6 +128,7 @@ def clientmode():
 								time.sleep(0.5)
 								if i==4:
 									print("[Server not responding]\n>>> "),
+									quitlist[0]=True
 									break
 					else:
 						print('[you are offline]\n>>> '),
@@ -170,13 +171,15 @@ def clientmode():
 										break
 									if i == 1 and acklist[0] == False:
 										print('[No ACK from ' +name+', message sent to server.]\n>>> '),
-										for i in range(0,2):
-											if i==1 and acklist[0]== True:
+										sys.stdout.flush()
+										for i in range(0,5):
+											if acklist[0]== True:
 												acklist[0]=False
 												print('[offline message received by server]\n>>> '),
 												break
-											if i==1 and acklist[0]==False:
+											if i==4 and acklist[0]==False:
 												print('[server not received the message]\n>>> '),
+												quitlist[0]=True
 												break
 											s.sendto(json.dumps({'tag':'offlinechat','info':(nick_name,name,data[2:])}),serveraddress)
 											time.sleep(0.5)
@@ -185,13 +188,14 @@ def clientmode():
 									time.sleep(0.5)
 							else:
 								acklist[0]=False
-								for i in range(0,2):
-									if i==1 and acklist[0]==True:
+								for i in range(0,5):
+									if acklist[0]==True:
 										acklist[0]=False
 										print('[Messages received by the server and saved]\n>>> '),
 										break
-									if i==1 and acklist[0]==False:
+									if i==4 and acklist[0]==False:
 										print('[server not received the message]\n>>> '),
+										quitlist[0]=True
 										break
 									s.sendto(json.dumps({'tag':'offlinechat','info':(nick_name,name,data[2:])}),serveraddress)
 									time.sleep(0.5)
@@ -296,6 +300,7 @@ def clientmode():
 			while 1:
 				if quitlist[0]==True:
 					break
+
 		else:
 			raise MyException("[invalid tag"+data['tag']+']')
 		
