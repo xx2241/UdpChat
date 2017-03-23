@@ -323,7 +323,7 @@ if __name__ == '__main__':
 	 	elif len(sys.argv) == 6 and sys.argv[1] == '-c':
 	 		clientmode()	 		
 	 	else:
-	 		raise MyException("please input as the following format:\n>>> python <filename> -c <nick_name> <server_ip> <server_port> <client_port>\n>>> usage: python Client.py -s <server-port>")
+	 		raise MyException("please input as the following format:\n>>> python <filename> -c <nick_name> <server_ip> <server_port> <client_port>\n>>> usage: python UdpChat.py -s <server-port>")
 	 except KeyboardInterrupt: 
 	 	print(">>> Bye")
 	 	raise KeyboardInterrupt
